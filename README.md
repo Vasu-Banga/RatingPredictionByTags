@@ -109,9 +109,46 @@ This analysis helped identify which tags are generally associated with higher or
 
 ***Interesting Aggregates***: Some of the least rated and most rated tags seemed particularly interesting to me, including `recipe`, `ragu` both being highly rated with high TF-IDF values, while `sugar` was rated particularly poorly 
 
+***Tag Handling***: If you look carefully at certain tags, some tags have been split into seperate tags, although they should clearly be paired together. Due to the nature of these splits, and trying to differentiate between an intentional split and not a split, this did not seem particularly important to search through. This is the reason for `non` and `alcoholic` being separate in the good tags
+
 ## Framing a Prediction Problem
 
+For the prediction problem, I chose to predict the rating of a recipe based on the tags, which results out to a regression problem. This is due to `rating` being able to be any integer between 1 and 5, and with most values resulting between 4 and 5, decimal places are particularly important here, so we cannot simply generalize.
+
+To evaluate the model's effectiveness, we look towards the Mean Squared Error value (MSE). There are a few reasons for this
+
+- **Interpretability**: Tells us exactly how off our predictions are. With our model predicting only between values 1 - 5, we need to make sure this value is low, and MSE allows us to check that
+
+- **Sensitive**: MSE penalizes large errors more heavily, which allows our model to prioritize minimizing large mistakes. With a training set that's so skewed towards 4 and 5, this makes our final model more sensitive, which is perfect for us.
+
+- **Stability**: All of our outputs are between 1-5, so the common issue with using mean as a metric - outliers - is not an issue here. We know that the furthest an outlier can go is 1 or 5, so these cases are not disproportionately penalized.
+
+When developing our model, I chose to use the following metrics: `rating` and `tags`. When finally evaluating the model's effectiveness, I compared to `average_rating` and `rating`, to get a more accurate understanding of how accurate the model truly is, and how much outliers truly affected this model.
 
 ## Baseline Model
 
+For our baseline model, we looked towards two different models - **Linear Regression** and **Random Forest**
+
+*Note*: We did consider additional models, however other issues were faced, including complexity, extreme overfitting, extreme underfitting, and more. Linear Regression and Random Forest resulted in the best baseline models, so we chose these to begin with
+
+- **Linear Regression**: We started with Linear Regression due to its simplicity. The baseline model only had to take one particular tag, and then use it to generate the predicted rating from just that individual tag, with no regard for TF-IDF value in the recipe it's being trained on. After encoding inputs with **One-hot encoding**, we were able to convert the categorical inputs into quantitative data for our model to evaluate on. This proved itself to be quite accurate, with a testing MSE of 0.235
+
+- **Random Forest**: With RandomForest, we dived right in to our final model, which takes multiple tags and predicts the combined rating. In order to accomplish this, we utilized a **MultiLabelBinarizer**, which takes all the tags, and encodes it to 0s and 1s in an array to be used as an input into this model. This allowed us to take something categorical and convert it into numerical data for this model to converge on. This particular model resulted in a MSE of 0.5449, which is incredibly large, much worse than linear regression. However, when compared to the average rating, we ended up with a MSE of 0.08, meaning the model is incredibly robust to outliers, meaning we generated an incredibly robust model.
+
+Ultimately, both models had somewhat good performance, however the intentions were different for both. Linear Regression only checked a single tag, and then used that to predict a rating, while Random Forest used multiple tags to generate a combined value, and wasn't particularly good at handling individual tags, since that wasn't what it was trained on.
+
+When moving to the final model, we had to convert our LinearRegression model to something that could handle multiple tags.
+
 ## Final Model
+
+To begin our Final Model, we had to make our Linear Regression model able to handle multiple inputs, and here's how we approached it:
+
+- **Averaging**: At first, we began with taking each tag, averaging out the outputs, and then returning the mean of the ratings. While this worked somewhat well, this valued meaningless tags too highly, which prompted us to stray away from this
+
+- **TF-IDF combination**: This model took the input, ran a TF-IDF to get a value for each input, and multiplied this value by the predicted output from our barebones model, which resulted in an incredibly accurate model, with an MSE of 0.2465 when compared to average ratings.
+
+### Comparison
+
+Ultimately, when comparing the two models, I elected to go towards RandomForest. With an MSE against average ratings of 0.08, this was incredibly accurate. This is most likely due to the very nature of binary trees, which can detect relationships between various tags, and value those, along with their standalone values. For example, something with the tags `southern` and `baked` may be valued differently than something with the tags `lebanese` and `baked`, and the predicted ratings from RandomForest tended to reflect these relationships much more than our TF-IDF combinations did.
+
+Regarding performance, our **Test MSE** was 0.5449, while our MSE on **Average Ratings** was 0.08, meaning our model is incredibly robust in its predictions, and particularly accurate as well. I did run my model on some edge cases, including every tag as well, and it was able to hold up particularly well, penalizing random assortments of tags, and rated well chosen tags much more highly.
